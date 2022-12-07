@@ -1,0 +1,73 @@
+version: '3'
+services:
+  flask_app:
+    environment:
+        - FLASK_APP=application.py
+        - FLASK_DEBUG=1
+        - DD_SERVICE=flask_backend
+        - DD_ENV=fargate_dev
+        - DD_LOGS_INJECTION=true
+        - DD_TRACE_SAMPLE_RATE=1
+        - DD_PROFILING_ENABLED=true
+    image: 'thomaspark034/flask_backend_fargate:latest'
+    entrypoint: []
+    depends_on:
+      - datadog
+    labels:
+      com.datadoghq.tags.env: 'fargate_dev'
+      com.datadoghq.tags.service: 'flask_backend'
+      com.datadoghq.tags.version: '2.1'
+      my.custom.label.team: 'dev'
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "flask_backend"}]'
+    ports:
+      - '5500:5500'
+
+  react_app:
+    image: 'thomaspark034/react_frontend_fargate:latest'
+    entrypoint: []
+    depends_on:
+      - datadog
+      - flask_app
+    labels:
+      com.datadoghq.tags.env: 'fargate_dev'
+      com.datadoghq.tags.service: 'flask_frontend'
+      com.datadoghq.tags.version: '2.1'
+      my.custom.label.team: 'dev'
+    ports:
+      - '3000:3000'
+  
+  
+  datadog:
+    image: 'datadog/agent:latest'
+    build: datadog
+    environment:
+      #basic agent, only metrics
+      - DD_API_KEY=<api_key>
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_SITE=datadoghq.com
+      
+      #tags
+      - DD_DOCKER_LABELS_AS_TAGS={"my.custom.label.team":"team"}
+      - DD_TAGS='env:flask_backend'
+      
+      #APM
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_PROFILING_ENABLED=true
+      
+      #logs
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE="name:datadog-agent"
+      - DD_LOGS_CONFIG_DOCKER_CONTAINER_USE_FILE=true
+    ports:
+      #agent port 
+      - 8126:8126/tcp
+    #volumes:
+      # for local mac - /var/run/docker.sock:/var/run/docker.sock:ro 
+      # - /proc/:/host/proc/:ro 
+      # - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro 
+      #logs
+      # for local mac - /var/lib/docker/containers:/var/lib/docker/containers:ro 
+      # for local mac - /opt/datadog-agent/run:/opt/datadog-agent/run:rw 
+      
